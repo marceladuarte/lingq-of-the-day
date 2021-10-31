@@ -5,7 +5,7 @@ Select a LingQ from your LingQ account for your chosen language.
 ## Golang server
 
 Replace the `LINGQ_API_KEY` with your LingQ api key. 
-You can find your api LingQ api key [here](https://www.lingq.com/accounts/apikey).
+You can find your LingQ api key [here](https://www.lingq.com/accounts/apikey).
 
 To start the server, run the following command from the project root directory.
 ```
