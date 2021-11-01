@@ -5,7 +5,6 @@
 </template>
 
 <script>
-// import Card from './components/Card.vue'
 import Language from './components/Language.vue'
 
 export default {

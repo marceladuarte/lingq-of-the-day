@@ -38,18 +38,16 @@ func main() {
 func LanguageHandler(c *gin.Context) {
 	resp, err := http.Get(LanguageURL)
 	if err != nil {
-		c.AbortWithStatus(http.StatusNotFound)
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Connection with LingQ server failed"})
+		return
 	}
+	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	checkError(err)
 
 	content := string(body)
 	languages := fromJsonToLanguages(content)
-
-	for _, language := range languages {
-		fmt.Printf("%v: %v\n", language.Title, language.Code)
-	}
 	c.JSON(http.StatusOK, languages)
 }
 
@@ -76,7 +74,8 @@ func CardHandler(c *gin.Context) {
 
 	language = strings.TrimSpace(language)
 	if len(language) == 0 {
-		c.AbortWithStatus(http.StatusNotFound)
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Language is required"})
+		return
 	}
 
 	cardNumber := getRandomCardNumber(language)
@@ -93,18 +92,15 @@ func CardHandler(c *gin.Context) {
 		return
 	}
 
-	cardsContent := getCards(cardNumber, language)
-	fmt.Printf("%v\n", string(cardsContent))
-	cards := fromJsonToCard(cardsContent)
-
-	fmt.Printf("%v\n", cards[0])
-	c.JSON(http.StatusOK, cards[0])
+	cardContent := getCard(cardNumber, language)
+	card := fromJsonToCard(cardContent)
+	c.JSON(http.StatusOK, card)
 }
 
 func getRandomCardNumber(language string) int {
 	// setting page as 1 because what we care about here is only the total of cards
 	// which is always retrieved by the api no matter the page
-	content := string(getCards(1, language))
+	content := string(getCard(1, language))
 
 	// if there's no count node, some error may have happened when connecting with LingQ server
 	if !gjson.Get(content, "count").Exists() {
@@ -122,35 +118,33 @@ func getRandomCardNumber(language string) int {
 	return rand.Intn(int(totalCards))
 }
 
-func getCards(page int, language string) []byte {
+func getCard(page int, language string) []byte {
 	url := fmt.Sprintf(CardURL, language, page)
 	req, _ := http.NewRequest("GET", url, nil)
 
 	req.Header.Set("Authorization", fmt.Sprintf("Token %v", Token))
 
 	client := &http.Client{}
-	resp, _ := client.Do(req)
+	resp, err := client.Do(req)
+	checkError(err)
+	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	checkError(err)
+
 	return body
 }
 
-func fromJsonToCard(content []byte) []Card {
-	cards := make([]Card, 0)
-
+func fromJsonToCard(content []byte) Card {
 	value := gjson.Get(string(content), "results")
 	decoder := json.NewDecoder(strings.NewReader(value.String()))
 	_, err := decoder.Token()
 	checkError(err)
 
 	var card Card
-	for decoder.More() {
-		err := decoder.Decode(&card)
-		checkError(err)
-		cards = append(cards, card)
-	}
-	return cards
+	err = decoder.Decode(&card)
+	checkError(err)
+	return card
 }
 
 func checkError(err error) {
